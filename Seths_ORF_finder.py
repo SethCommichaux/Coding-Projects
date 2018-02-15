@@ -1,12 +1,23 @@
+### This program finds all open reading frames (ORFs) above a specified length.  Input is a fasta file of contigs, genomes or scaffolds
+### and it returns a file of ORF coordinates and fasta file of ORF sequences.
+
 import sys
 from Bio import SeqIO
 
 ### make codon table 11
+### any genetic code table from NCBI can be used here
+
 table11 = '''FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG
 ---M------**--*----M------------MMMM---------------M------------
 TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG
 TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG
 TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG'''.split('\n')
+
+
+### This creates python dictionaries of...
+### codons = codons to amino acids
+### starts = start codons
+### stops = stop codons
 
 codons,starts,stops = {},{},{}
 
@@ -20,7 +31,7 @@ for i in range(len(table11[0])):
 
 def translate(seq,table11,scaffold_name,min_pro_len,strand,frame,dna):
 	if strand == '+':
-		orf,orfs,stop_seq,s = '',[],'',0
+		orf,s = '',0
 		for nt in range(0,len(seq)-2,3):
 			if seq[nt:nt+3] in starts:
 				if orf == '':
@@ -41,14 +52,19 @@ def translate(seq,table11,scaffold_name,min_pro_len,strand,frame,dna):
 						out_coordinates.close()
 						orf = ''
 						s = 0
+                                        elif len(orf)>50:
+                                                out_coordinates = open(sys.argv[1]+".gene_coordinates.txt",'a')
+                                                out_coordinates.write(str(scaffold_name)+'\t'+strand+'\t'+str(len(dna)-nt-frame)+'\t'+str(len(dna)-s-frame)+'\n')
+                                                out_coordinates.close()
+                                                orf = ''
+                                                s = 0
 			else:
 				if orf == '':
 					continue
 				else:
 					orf += codons.get(seq[nt:nt+3],'X')
-		return orfs
 	elif strand == '-':
-		orf,orfs,stop_seq,s = '',[],'',0
+		orf,s = '',0
 		for nt in range(0,len(seq)-2,3):
 			if seq[nt:nt+3] in starts:
 				if orf == '':
@@ -70,6 +86,12 @@ def translate(seq,table11,scaffold_name,min_pro_len,strand,frame,dna):
 						out_coordinates.close()
 						orf = ''
 						s = 0
+					elif len(orf)>50:
+                                                out_coordinates = open(sys.argv[1]+".gene_coordinates.txt",'a')
+                                                out_coordinates.write(str(scaffold_name)+'\t'+strand+'\t'+str(len(dna)-nt-frame)+'\t'+str(len(dna)-s-frame)+'\n')
+                                                out_coordinates.close()
+                                                orf = ''
+                                                s = 0
 			else:
 				if orf == '':
 					continue
@@ -77,16 +99,15 @@ def translate(seq,table11,scaffold_name,min_pro_len,strand,frame,dna):
 					orf += codons.get(seq[nt:nt+3],'X')
 
 
-min_pro_len = 1667
+min_pro_len = 500
 
 
 for record in SeqIO.parse(sys.argv[1],'fasta'):
 	dna = record.seq
-	if len(record.seq) < min_pro_len/3:
+	if len(record.seq) < 300:
 		continue
 	for strand, nuc in [('+', record.seq), ('-', record.seq.reverse_complement())]:
 		for frame in range(3):
 			length = 3 * ((len(record)-frame) // 3) #Multiple of three
 			translate(nuc[frame:frame+length],table11,str(record.description),min_pro_len,strand,frame,dna)
-
 
